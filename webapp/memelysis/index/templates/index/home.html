@@ -1,0 +1,146 @@
+{% extends "index/base.html" %}
+{% load static %}
+
+{% block header %}
+<form action="/select_min_vf" method="POST">
+	{% csrf_token %}
+    <label for="min_vf">MIN VF</label>
+	<input type="range" style="vertical-align: middle" id="min_vf" name="min_vf" min="0" max="100" onchange="this.form.submit()" value="{{min_vf}}">
+</form>
+<form action="/sort" method="POST">
+	{% csrf_token %}
+    <select class="form-control" name="sort" id="sort" onchange="this.form.submit()">
+		{% for option, verbose in sorting_options %}
+			<option value="{{option}}" {% if option == request.session.sort %}selected{% endif %}>{{verbose}}</option>
+		{% endfor %}
+    </select>
+</form>
+<form action="/select_category" method="POST">
+	{% csrf_token %}
+    <select class="form-control" name="category" id="category" onchange="this.form.submit()">
+		{% for category in categories %}
+			<option value="{{category}}" {% if category == request.session.category %}selected{% endif %}>{{category}}</option>
+		{% endfor %}
+    </select>
+</form>
+<form action="/select_source" method="POST">
+	{% csrf_token %}
+    <select class="form-control" name="source" id="source" onchange="this.form.submit()">
+		{% for source in sources %}
+			<option value="{{source}}" {% if source == request.session.source %}selected{% endif %}>{{source}}</option>
+		{% endfor %}
+    </select>
+</form>
+{% endblock %}
+
+
+{% block content %}
+	<style>
+		.pagination .page-item.active .page-link{
+			background: #000;
+			border-color: #000;
+			color: #fff;
+		}
+		.pagination .page-link{
+			color: #000;
+		}
+	</style>
+	<div class="container mt-5">
+		{% for meme in memes %}
+		<div class="row border-bottom text-white shadow" style="background:#000">
+			<div class="col-12" style="display: flex; flex-direction: column;">
+				<div class="row p-3">
+					<div class="col-6">
+						<span style="font-weight: bold; font-size: 13pt;">Meme from {{meme.source__name}} #{{meme.memesclusters__cluster}}</span>
+					</div>
+					<div class="col-6 text-right">
+						<span>Posted at {{meme.meme_datetime}}</span>
+						<span class="likes" id="likes_{{meme.id}}" style="margin-left:10px; border:1px solid #fff; padding: 3px; cursor: pointer">{{meme.memesupvotesstatistics__upvotes}} <img src="{% static 'index/assets/like-icon.png' %}" style="max-height:1rem" /> ({{meme.memesupvotesstatistics__upvotes_centile|floatformat:2}})<div class="graph" style="position: absolute; right: 0; top: 2rem; z-index:1000;"><div class="graph-inner shadow" style="background:#fff; border:1px solid #eee; border-radius: 8px; display:none; padding: 1rem"></div></div></span>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row border-bottom p-3 mb-5 bg-white shadow">
+			<div class="col-12 text-center">
+				<img src="{% static meme.image_path %}" style="max-width:100%" class="border" />
+				{% comment %} {% include "index/graph.html" %} {% endcomment %}
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+	<div class="container mb-3">
+		{% if memes.has_other_pages %}
+		<div class="row justify-content-center">
+			<div class="row justify-content-center">
+				<div class="text-xs-center">
+					<ul class="pagination justify-content-center">
+						{% if memes.has_previous %}
+							<li>
+								<a class="page-link" href="?page={{ memes.previous_page_number }}">&laquo;</a>
+							</li>
+						{% else %}
+							<li class="page-item disabled">
+								<a class="page-link"><span>&laquo;</span></a>
+							</li>
+						{% endif %}
+						{% for i in memes.paginator.page_range %}
+							{% if i < memes.number|add:"-1" %}
+							{% elif memes.number == i %}
+								<li class="page-item active"><a class="page-link">
+									<span>{{ i }}<span class="sr-only">(current)</span></span></a>
+								</li>
+							{% elif i > memes.number|add:2 %}
+							{% else %}
+								<li class="page-item">
+									<a class="page-link" href="?page={{ i }}">{{ i }}</a>
+								</li>
+							{% endif %}
+						{% endfor %}
+						<li class="page-item disabled">
+							<a class="page-link" >...</a>
+						</li>
+
+						{% for i in memes.paginator.page_range|slice:"-1:" %}
+							{% if memes.number == i %}
+								<li class="page-item active"><a class="page-link">
+									<span>{{ i }}<span class="sr-only">(current)</span></span></a>
+								</li>
+							{% else %}
+								<li class="page-item">
+									<a class="page-link" href="?page={{ i }}">{{ i }}</a>
+								</li>
+							{% endif %}
+						{% endfor %}
+
+						{% if memes.has_next %}
+							<li class="page-item">
+								<a class="page-link" href="?page={{ memes.next_page_number }}">&raquo;</a>
+							</li>
+						{% else %}
+							<li class="page-item disabled">
+								<span>&raquo;</span>
+							</li>
+						{% endif %}
+					</ul>
+				</div>
+			</div>
+		</div>
+		{% endif %}
+	</div>
+<script>
+$('.likes').on('click', function(){
+	var graph = $(this).find('.graph-inner');
+	if(graph.html()){
+		graph.hide();
+		graph.html('');
+	}
+	else{
+		graph.html('<img style="height: 1rem;" src="{% static 'index/assets/loading.gif' %}" />')
+		graph.fadeIn();
+		$.post("/get_graph", {'id': $(this).attr('id'), 'csrfmiddlewaretoken': '{{ csrf_token }}'}, function(data){
+			graph.html(data);
+		});
+	}
+});
+</script>
+{% endblock content %}
